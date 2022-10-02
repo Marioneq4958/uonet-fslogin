@@ -81,7 +81,7 @@ class UonetFSLogin:
             if not "nie został zarejestrowany" in cert_response.text:
                 if second_form:
                     second_cert: dict[str, str] = self.get_hidden_inputs(second_form)
-                    url: str = second_form["action"].replace(self.symbol, symbol)
+                    url: str = second_form["action"].replace(DEFAULT_SYMBOL, symbol)
                     cert_response = self.send_cert(second_cert, url)
                 if not "Brak uprawnień" in cert_response.text:
                     sessions[symbol] = self.session.cookies.get_dict()
