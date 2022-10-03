@@ -3,6 +3,21 @@ from bs4 import BeautifulSoup
 import re
 
 DEFAULT_SYMBOL: str = "default"
+ATTRIBUTES: dict = {
+    "name": "username",
+    "emailaddress": "primary_email",
+    "SecondaryEmail": "secondary_email",
+    "PESEL": "pesel",
+    "givenname": "name",
+    "surname": "last_name",
+    "SessionID": "session_id",
+    "authtype": "auth_type",
+    "UserInstance": "symbols",
+    "UPN": "upn",
+    "ImmutableID": "immutable_id",
+    "accountauthorization": "account_authorization",
+    "daystochange": "days_to_change_password"
+}
 
 class UonetFSLogin:
     def __init__(self, username: str, password: str, scheme: str, host: str, symbols: str):
@@ -65,7 +80,11 @@ class UonetFSLogin:
 
         form = soup.select_one('form[name="hiddenform"]')
         cert: dict[str, str] = self.get_hidden_inputs(soup.select_one('form'))
-        symbols: list[str] = self.extract_symbols(cert["wresult"])
+        attributes: dict = self.get_attributes_from_cert(cert["wresult"])
+        try:
+            symbols: list[str] = attributes["symbols"]
+        except:
+            symbols: list[str] = []
         for symbol in self.symbols:
             symbols.append(symbol)
         try:
@@ -77,7 +96,6 @@ class UonetFSLogin:
             cert_response = self.send_cert(cert, url)
             soup = BeautifulSoup(cert_response.text, "html.parser")
             second_form = soup.select_one('form[name="hiddenform"]')
-            print(cert_response.text)
             if not "nie został zarejestrowany" in cert_response.text:
                 if second_form:
                     second_cert: dict[str, str] = self.get_hidden_inputs(second_form)
@@ -85,7 +103,7 @@ class UonetFSLogin:
                     cert_response = self.send_cert(second_cert, url)
                 if not "Brak uprawnień" in cert_response.text:
                     sessions[symbol] = self.session.cookies.get_dict()
-        return sessions
+        return sessions, attributes
 
     def send_cert(self, cert: dict, url: str):
         try:
@@ -94,18 +112,31 @@ class UonetFSLogin:
             raise Exception("Failed sending certificate")
         return response
 
-    def extract_symbols(self, wresult: str) -> list[str]:
+    def get_attributes_from_cert(self, wresult: str):
         # drobotk/vulcan-sdk-py <3
+        attributes: dict = {}
         try:
             soup = BeautifulSoup(wresult.replace(":", ""), "lxml")
-            tags: list = soup.select(
-                'samlAttribute[AttributeName$="Instance"] samlAttributeValue'
+            attribute_tags: list = soup.select(
+                "samlAttributeStatement samlAttribute"
             )
-            symbols: list[str] = [tag.text.strip() for tag in tags]
-            symbols = [s for s in symbols if re.compile(r"[a-zA-Z0-9]*").fullmatch(s)]
+            for attribute_tag in attribute_tags:
+                try:
+                    name = ATTRIBUTES[attribute_tag["attributename"]]
+                except:
+                    name = attribute_tag["attributename"]
+                attribute_value_tags: list = attribute_tag.select("samlattributevalue")
+                attribute_values: list = []
+                for attribute_value_tag in attribute_value_tags:
+                    attribute_values.append(attribute_value_tag.text)
+                if len(attribute_values) > 1:
+                    attributes[name] = attribute_values
+                else:
+                    attributes[name] = attribute_values[0]
+            return attributes
         except:
-            raise Exception("Failed extracting symbols")
-        return symbols
+            raise Exception("Failed getting attributes from cert")
+
 
     def log_out(self, symbol: str, session_cookies: dict[str, str]):
         try:
