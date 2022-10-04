@@ -71,8 +71,8 @@ class UonetFSLogin:
             raise Exception("Failed sending credentials")
         return response
 
-    def log_in(self):
-        sessions = {}
+    def log_in(self) -> tuple[dict, dict]:
+        sessions: dict = {}
         credentials_response = self.send_credentials()
         soup = BeautifulSoup(credentials_response.text, "html.parser")
         if soup.select(".ErrorMessage, #ErrorTextLabel, #loginArea #errorText"):
@@ -80,9 +80,9 @@ class UonetFSLogin:
 
         form = soup.select_one('form[name="hiddenform"]')
         cert: dict[str, str] = self.get_hidden_inputs(soup.select_one('form'))
-        attributes: dict = self.get_attributes_from_cert(cert["wresult"])
+        user_data: dict = self.get_attributes_from_cert(cert["wresult"])
         try:
-            symbols: list[str] = attributes["symbols"]
+            symbols: list[str] = user_data["symbols"]
         except:
             symbols: list[str] = []
         for symbol in self.symbols:
@@ -103,7 +103,7 @@ class UonetFSLogin:
                     cert_response = self.send_cert(second_cert, url)
                 if not "Brak uprawnień" in cert_response.text:
                     sessions[symbol] = self.session.cookies.get_dict()
-        return sessions, attributes
+        return (sessions, user_data)
 
     def send_cert(self, cert: dict, url: str):
         try:
