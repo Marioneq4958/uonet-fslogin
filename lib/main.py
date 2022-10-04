@@ -138,12 +138,13 @@ class UonetFSLogin:
             raise Exception("Failed getting attributes from cert")
 
 
-    def log_out(self, symbol: str, session_cookies: dict[str, str]):
-        try:
-            self.session.get(
-                url=self.get_login_endpoint_url(self.get_login_endpoint_url(symbol)),
-                params={"logout": "true"},
-                cookies=session_cookies,
-            )
-        except:
-            raise Exception("Failed sending request to log-out")
+    def log_out(self, sessions: dict):
+        for symbol in sessions:
+            try:
+                self.session.get(
+                    url=self.get_login_endpoint_url(self.get_login_endpoint_url(symbol)),
+                    params={"logout": "true"},
+                    cookies=sessions[symbol],
+                )
+            except:
+                raise Exception("Failed sending request to log-out")
