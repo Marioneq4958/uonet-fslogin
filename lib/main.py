@@ -20,16 +20,19 @@ ATTRIBUTES: dict = {
 }
 
 class UonetFSLogin:
-    def __init__(self, username: str, password: str, scheme: str, host: str, symbols: str):
+    def __init__(
+            self, username: str, password: str, scheme: str, host: str, symbols: list[str],
+            default_symbol: str = DEFAULT_SYMBOL):
         self.username = username
         self.password = password
         self.scheme = scheme
         self.symbols = symbols
+        self.default_symbol = default_symbol
         self.host = host
         self.session = requests.Session()
 
-    def get_login_endpoint_url(self, symbol: str = DEFAULT_SYMBOL) -> str:
-        return f"{self.scheme}://uonetplus.{self.host}/{symbol}/LoginEndpoint.aspx"
+    def get_login_endpoint_url(self, symbol: str) -> str:
+        return f"{self.scheme}://uonetplus.{self.host}/{symbol if symbol else self.default_symbol}/LoginEndpoint.aspx"
 
     def get_hidden_inputs(self, form) -> dict:
         hidden_inputs: dict = {}
@@ -51,7 +54,7 @@ class UonetFSLogin:
 
     def get_form_data(self):
         try:
-            response = self.session.get(self.get_login_endpoint_url(DEFAULT_SYMBOL))
+            response = self.session.get(self.get_login_endpoint_url(self.default_symbol))
         except:
             raise Exception("Failed fetching login page")
         soup = BeautifulSoup(response.text, "html.parser")
@@ -92,14 +95,14 @@ class UonetFSLogin:
         except:
             pass
         for symbol in symbols:
-            url: str = form["action"].replace(DEFAULT_SYMBOL, symbol)
+            url: str = form["action"].replace(self.default_symbol, symbol)
             cert_response = self.send_cert(cert, url)
             soup = BeautifulSoup(cert_response.text, "html.parser")
             second_form = soup.select_one('form[name="hiddenform"]')
             if not "nie został zarejestrowany" in cert_response.text:
                 if second_form:
                     second_cert: dict[str, str] = self.get_hidden_inputs(second_form)
-                    url: str = second_form["action"].replace(DEFAULT_SYMBOL, symbol)
+                    url: str = second_form["action"].replace(self.default_symbol, symbol)
                     cert_response = self.send_cert(second_cert, url)
                 if not "Brak uprawnień" in cert_response.text:
                     sessions[symbol] = self.session.cookies.get_dict()
@@ -136,7 +139,6 @@ class UonetFSLogin:
             return attributes
         except:
             raise Exception("Failed getting attributes from cert")
-
 
     def log_out(self, sessions: dict):
         for symbol in sessions:
