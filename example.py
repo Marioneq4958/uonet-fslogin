@@ -1,9 +1,8 @@
 from lib.main import UonetFSLogin
 
 def example():
-    # https://github.com/wulkanowy/fake-log/issues/53
     uonet_fslogin = UonetFSLogin(
-	username="jan@fakelog.cf", password="jan123", scheme="", symbols=[], host="fakelog.cf"
+	username="jan@fakelog.cf", password="jan123", scheme="http", host="fakelog.cf", default_symbol="powiatwulkanowy"
     )
     sessions, user_data = uonet_fslogin.log_in()
     print(sessions, user_data)
