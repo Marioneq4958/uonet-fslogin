@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import re
 
 DEFAULT_SYMBOL: str = "default"
-ATTRIBUTES: dict = {
+ATTRIBUTES: dict[str, str] = {
     "name": "username",
     "emailaddress": "primary_email",
     "SecondaryEmail": "secondary_email",
@@ -41,7 +41,7 @@ class UonetFSLogin:
             hidden_inputs[hidden_input_tag["name"]] = hidden_input_tag["value"]
         return hidden_inputs
 
-    def get_credentials_inputs(self, form):
+    def get_credentials_inputs(self, form) -> tuple[str, str]:
         try:
             if form.select_one('input[type="text"]'):
                 username_input: str = form.select_one('input[type="text"]')["name"]
@@ -52,7 +52,7 @@ class UonetFSLogin:
             raise Exception("Failed searching credentials inputs")
         return username_input, password_input
 
-    def get_form_data(self):
+    def get_form_data(self) -> tuple[dict, str]:
         try:
             response = self.session.get(self.get_login_endpoint_url(self.default_symbol))
         except:
@@ -115,7 +115,7 @@ class UonetFSLogin:
             raise Exception("Failed sending certificate")
         return response
 
-    def get_attributes_from_cert(self, wresult: str):
+    def get_attributes_from_cert(self, wresult: str) -> dict:
         # drobotk/vulcan-sdk-py <3
         attributes: dict = {}
         try:
