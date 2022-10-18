@@ -12,7 +12,7 @@ setup(
     url="https://github.com/marioneq4958/uonet-fslogin",
     python_requires=">=3.6,<4.0",
     install_requires=[
-        "requests", "bs4", "beautifulsoup4"
+        "asyncio", "aiohttp", "bs4", "beautifulsoup4"
     ],
     extras_require={"testing": ["pytest", "python-dotenv"]},
     classifiers=[

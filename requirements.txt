@@ -1,3 +1,4 @@
-requests
+asyncio
+aiohttp
 bs4
 beautifulsoup4
