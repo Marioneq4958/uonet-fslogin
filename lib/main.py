@@ -1,6 +1,6 @@
-import requests
 from bs4 import BeautifulSoup
 import re
+import aiohttp
 
 DEFAULT_SYMBOL: str = "default"
 ATTRIBUTES: dict[str, str] = {
@@ -21,7 +21,7 @@ ATTRIBUTES: dict[str, str] = {
 
 class UonetFSLogin:
     def __init__(
-            self, username: str, password: str, scheme: str, host: str, symbols: list[str],
+            self, username: str, password: str, scheme: str, host: str, symbols: list[str] = [],
             default_symbol: str = DEFAULT_SYMBOL):
         self.username = username
         self.password = password
@@ -29,7 +29,7 @@ class UonetFSLogin:
         self.symbols = symbols
         self.default_symbol = default_symbol
         self.host = host
-        self.session = requests.Session()
+        self.session = aiohttp.ClientSession()
 
     def get_login_endpoint_url(self, symbol: str) -> str:
         return f"{self.scheme}://uonetplus.{self.host}/{symbol if symbol else self.default_symbol}/LoginEndpoint.aspx"
@@ -52,32 +52,32 @@ class UonetFSLogin:
             raise Exception("Failed searching credentials inputs")
         return username_input, password_input
 
-    def get_form_data(self) -> tuple[dict, str]:
+    async def get_form_data(self) -> tuple[dict, str]:
         try:
-            response = self.session.get(self.get_login_endpoint_url(self.default_symbol))
+            response = await self.session.get(self.get_login_endpoint_url(self.default_symbol))
         except:
             raise Exception("Failed fetching login page")
-        soup = BeautifulSoup(response.text, "html.parser")
+        soup = BeautifulSoup(await response.text(), "html.parser")
         form = soup.select_one("form")
-        data = self.get_hidden_inputs(form)
+        data: dict = self.get_hidden_inputs(form)
         username_input, password_input = self.get_credentials_inputs(form)
         data[username_input] = self.username
         data[password_input] = self.password
-        url = response.url
+        url: str = response.url
         return data, url
 
-    def send_credentials(self):
-        data, url = self.get_form_data()
+    async def send_credentials(self):
+        data, url = await self.get_form_data()
         try:
-            response = self.session.post(url=url, data=data)
+            response = await self.session.post(url=url, data=data)
         except:
             raise Exception("Failed sending credentials")
         return response
 
-    def log_in(self) -> tuple[dict, dict]:
+    async def log_in(self) -> tuple[dict, dict]:
         sessions: dict = {}
-        credentials_response = self.send_credentials()
-        soup = BeautifulSoup(credentials_response.text, "html.parser")
+        credentials_response = await self.send_credentials()
+        soup = BeautifulSoup(await credentials_response.text(), "html.parser")
         if soup.select(".ErrorMessage, #ErrorTextLabel, #loginArea #errorText"):
             raise Exception("Username or password is incorrect")
 
@@ -96,21 +96,21 @@ class UonetFSLogin:
             pass
         for symbol in symbols:
             url: str = form["action"].replace(self.default_symbol, symbol)
-            cert_response = self.send_cert(cert, url)
-            soup = BeautifulSoup(cert_response.text, "html.parser")
+            cert_response = await self.send_cert(cert, url)
+            soup = BeautifulSoup(await cert_response.text(), "html.parser")
             second_form = soup.select_one('form[name="hiddenform"]')
-            if not "nie został zarejestrowany" in cert_response.text:
+            if not "nie został zarejestrowany" in await cert_response.text() and cert_response.status == 200:
                 if second_form:
                     second_cert: dict[str, str] = self.get_hidden_inputs(second_form)
                     url: str = second_form["action"].replace(self.default_symbol, symbol)
-                    cert_response = self.send_cert(second_cert, url)
-                if not "Brak uprawnień" in cert_response.text:
-                    sessions[symbol] = self.session.cookies.get_dict()
+                    cert_response = await self.send_cert(second_cert, url)
+                if not "Brak uprawnień" in await cert_response.text():
+                    sessions[symbol] = self.session.cookie_jar._cookies.get(f"{self.scheme}://{self.host}")
         return (sessions, user_data)
 
-    def send_cert(self, cert: dict, url: str):
+    async def send_cert(self, cert: dict, url: str):
         try:
-            response = self.session.post(url=url, data=cert)
+            response = await self.session.post(url=url, data=cert)
         except:
             raise Exception("Failed sending certificate")
         return response
@@ -124,6 +124,7 @@ class UonetFSLogin:
                 "samlAttributeStatement samlAttribute"
             )
             for attribute_tag in attribute_tags:
+                print(attribute_tag)
                 try:
                     name = ATTRIBUTES[attribute_tag["attributename"]]
                 except:
@@ -140,13 +141,16 @@ class UonetFSLogin:
         except:
             raise Exception("Failed getting attributes from cert")
 
-    def log_out(self, sessions: dict):
+    async def log_out(self, sessions: dict):
         for symbol in sessions:
             try:
-                self.session.get(
+                await self.session.get(
                     url=self.get_login_endpoint_url(self.get_login_endpoint_url(symbol)),
                     params={"logout": "true"},
                     cookies=sessions[symbol],
                 )
             except:
                 raise Exception("Failed sending request to log-out")
+
+    async def close(self):
+        await self.session.close()
