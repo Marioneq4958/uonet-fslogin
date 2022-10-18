@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 
 setup(
-    name="uonet-fslogin",
+    name="uonet_fslogin",
     version="0.1.0",
     packages=find_packages(),
     author="Marioneq4958",
