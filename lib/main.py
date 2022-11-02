@@ -1,3 +1,4 @@
+from typing import Union
 from bs4 import BeautifulSoup
 import re
 import aiohttp
@@ -18,6 +19,7 @@ ATTRIBUTES: dict[str, str] = {
     "accountauthorization": "account_authorization",
     "daystochange": "days_to_change_password"
 }
+
 
 class UonetFSLogin:
     def __init__(
@@ -44,24 +46,34 @@ class UonetFSLogin:
     def get_credentials_inputs(self, form) -> tuple[str, str]:
         try:
             if form.select_one('input[type="text"]'):
-                username_input: str = form.select_one('input[type="text"]')["name"]
+                username_input: str = form.select_one(
+                    'input[type="text"]')["name"]
             else:
-                username_input: str = form.select_one('input[type="email"]')["name"]
-            password_input: str = form.select_one('input[type="password"]')["name"]
+                username_input: str = form.select_one(
+                    'input[type="email"]')["name"]
+            password_input: str = form.select_one(
+                'input[type="password"]')["name"]
         except:
             raise Exception("Failed searching credentials inputs")
         return username_input, password_input
 
-    async def get_form_data(self) -> tuple[dict, str]:
+    def get_login_prefix(self, text: str) -> str:
+        login_prefix = re.compile(
+            r"var userNameValue = '([A-Z]+?)\\\\' \+ userName\.value;").search(text)
+        return login_prefix
+
+    async def get_form_data(self) -> tuple[dict, str, str]:
         try:
             response = await self.session.get(self.get_login_endpoint_url(self.default_symbol))
         except:
             raise Exception("Failed fetching login page")
-        soup = BeautifulSoup(await response.text(), "html.parser")
+        text = await response.text()
+        soup = BeautifulSoup(text, "html.parser")
         form = soup.select_one("form")
         data: dict = self.get_hidden_inputs(form)
         username_input, password_input = self.get_credentials_inputs(form)
-        data[username_input] = self.username
+        prefix = self.get_login_prefix(text)
+        data[username_input] = f"{prefix}\{self.username}" if prefix else self.username
         data[password_input] = self.password
         url: str = response.url
         return data, url
@@ -101,11 +113,16 @@ class UonetFSLogin:
             second_form = soup.select_one('form[name="hiddenform"]')
             if not "nie został zarejestrowany" in await cert_response.text() and cert_response.status == 200:
                 if second_form:
-                    second_cert: dict[str, str] = self.get_hidden_inputs(second_form)
-                    url: str = second_form["action"].replace(self.default_symbol, symbol)
+                    second_cert: dict[str, str] = self.get_hidden_inputs(
+                        second_form)
+                    url: str = second_form["action"].replace(
+                        self.default_symbol, symbol)
                     cert_response = await self.send_cert(second_cert, url)
                 if not "Brak uprawnień" in await cert_response.text():
-                    sessions[symbol] = self.session.cookie_jar._cookies.get(f"{self.scheme}://{self.host}")
+                    cookies = {}
+                    for cookie in self.session.cookie_jar:
+                        cookies[cookie.key] = cookie.value
+                    sessions[symbol] = cookies
         return (sessions, user_data)
 
     async def send_cert(self, cert: dict, url: str):
@@ -124,12 +141,12 @@ class UonetFSLogin:
                 "samlAttributeStatement samlAttribute"
             )
             for attribute_tag in attribute_tags:
-                print(attribute_tag)
                 try:
                     name = ATTRIBUTES[attribute_tag["attributename"]]
                 except:
                     name = attribute_tag["attributename"]
-                attribute_value_tags: list = attribute_tag.select("samlattributevalue")
+                attribute_value_tags: list = attribute_tag.select(
+                    "samlattributevalue")
                 attribute_values: list = []
                 for attribute_value_tag in attribute_value_tags:
                     attribute_values.append(attribute_value_tag.text)
@@ -145,7 +162,8 @@ class UonetFSLogin:
         for symbol in sessions:
             try:
                 await self.session.get(
-                    url=self.get_login_endpoint_url(self.get_login_endpoint_url(symbol)),
+                    url=self.get_login_endpoint_url(
+                        self.get_login_endpoint_url(symbol)),
                     params={"logout": "true"},
                     cookies=sessions[symbol],
                 )
