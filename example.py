@@ -1,11 +1,9 @@
-from lib.main import UonetFSLogin
+from uonet_fslogin.main import UonetFSLogin
 import asyncio
 
 async def example():
-    uonet_fslogin = UonetFSLogin(
-	    username="jan@fakelog.cf", password="jan123", scheme="http", host="fakelog.cf", default_symbol="powiatwulkanowy"
-    )
-    sessions, user_data = await uonet_fslogin.log_in()
+    uonet_fslogin = UonetFSLogin(scheme="https", host="fakelog.cf")
+    sessions, user_data = await uonet_fslogin.log_in(username="jan@fakelog.cf", password="jan123", default_symbol="powiatwulkanowy")
     await uonet_fslogin.close()
     print(sessions, user_data)
 
