@@ -11,6 +11,7 @@ DEFAULT_SYMBOL: str = "default"
 
 class UonetFSLogin:
     """Includes functions for user login and logout"""
+
     def __init__(self, scheme: str, host: str):
         self.scheme = scheme
         self.host = host
@@ -31,8 +32,8 @@ class UonetFSLogin:
         except ValueError as exc:
             raise FailedRequestException() from exc
 
-    async def _get_login_form_data(self, username: str, password: str, default_symbol: str) -> tuple[
-        dict[str, str], str]:
+    async def _get_login_form_data(self, username: str, password: str, default_symbol: str) -> \
+    tuple[dict[str, str], str]:
         text, url, status = await self._send_request(
             get_login_endpoint_url(self.scheme, self.host, default_symbol),
             "GET")
@@ -86,7 +87,9 @@ class UonetFSLogin:
                     continue
                 try:
                     check_errors(text)
-                except:
+                except NotRegisteredException:
+                    continue
+                except NoPermissionsException:
                     continue
             cookies: dict[str, str] = {}
             for cookie in self.session.cookie_jar:
@@ -94,14 +97,12 @@ class UonetFSLogin:
             sessions[symbol] = cookies
         return sessions, user_data
 
-
-
     async def log_out(self, sessions: dict[str, dict[str, str]]) -> None:
         """User logout"""
         if sessions:
             await self._send_request(get_login_endpoint_url(self.scheme, self.host, sessions[0]),
-                                    "GET",
-                                    cookies=sessions[sessions[0]])
+                                     "GET",
+                                     cookies=sessions[sessions[0]])
 
     async def close(self) -> None:
         await self.session.close()
