@@ -51,7 +51,7 @@ def get_credentials_inputs(form) -> tuple[str, str]:
         'input[type="text"], input[type="email"]')
     password_input: str = form.select_one(
         'input[type="password"]')
-    if not username_input or password_input:
+    if not username_input or not password_input:
         raise InvalidLoginFormException()
     return username_input, password_input
 
