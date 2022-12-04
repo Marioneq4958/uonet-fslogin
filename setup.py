@@ -7,7 +7,7 @@ setup(
     author="Marioneq4958",
     author_email="marioneq4958@gmail.com",
     description="Uonet+ ADFS & CUFS login module",
-    long_description: "Uonet+ ADFS & CUFS login module",
+    long_description="Uonet+ ADFS & CUFS login module",
     long_description_content_type="text/markdown",
     keywords=["Vulcan", "UONET+", "ADFS", "CUFS", "login",],
     license="MIT",
