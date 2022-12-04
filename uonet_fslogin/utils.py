@@ -67,7 +67,7 @@ def get_hidden_inputs(form) -> dict[str, str]:
 def get_attributes_from_cert(wresult: str) -> dict:
     # drobotk/vulcan-sdk-py <3
     attributes: dict[str, str | list[str]] = {}
-    soup = BeautifulSoup(wresult.replace(":", ""), "lxml")
+    soup = BeautifulSoup(wresult.replace(":", ""), "html5lib")
     attribute_tags: list = soup.select(
         "samlAttributeStatement samlAttribute"
     )
